@@ -1,39 +1,53 @@
 from flask import Flask, render_template, request, session, jsonify
 import os
 
-app = Flask(__name__)
-# Секретный ключ обязателен для работы баланса (сессий)
+# Инициализация приложения с явным указанием папки шаблонов
+app = Flask(__name__, template_folder='templates')
+
+# Секретный ключ для работы сессий (баланса). 
+# os.urandom(24) генерирует случайный ключ при каждом перезапуске сервера
 app.secret_key = os.urandom(24)
 
 @app.route('/')
 def index():
-    # Устанавливаем баланс, если его нет
+    # Устанавливаем стартовый баланс, если пользователь зашел впервые
     if 'balance' not in session:
         session['balance'] = 1000
-    return render_template('index.html', balance=session['balance'])
+    
+    # Пытаемся отобразить главную страницу слота
+    try:
+        return render_template('index.html', balance=session['balance'])
+    except Exception as e:
+        return f"Ошибка: Файл index.html не найден в папке templates. Подробности: {e}", 404
 
 @app.route('/spin', methods=['POST'])
 def spin():
-    # Проверяем баланс перед началом
+    # Получаем текущий баланс из сессии
     current_balance = session.get('balance', 1000)
-    if current_balance < 100:
-        return jsonify({"error": "Low balance"}), 400
     
-    # Списываем ставку и сохраняем
+    # Проверка: достаточно ли средств для ставки (ставка 100)
+    if current_balance < 100:
+        return jsonify({"error": "Недостаточно средств"}), 400
+    
+    # Списываем ставку и обновляем сессию
     session['balance'] = current_balance - 100
     return jsonify({"new_balance": session['balance']})
 
 @app.route('/win', methods=['POST'])
 def win():
-    # Получаем сумму выигрыша из JS
+    # Получаем данные о выигрыше от JavaScript
     data = request.get_json()
-    amount = data.get('amount', 0)
+    if not data or 'amount' not in data:
+        return jsonify({"error": "Неверные данные"}), 400
     
-    # Добавляем к текущему балансу и сохраняем
+    win_amount = data.get('amount', 0)
+    
+    # Добавляем выигрыш к балансу
     current_balance = session.get('balance', 0)
-    session['balance'] = current_balance + amount
+    session['balance'] = current_balance + win_amount
+    
     return jsonify({"new_balance": session['balance']})
 
 if __name__ == '__main__':
-    app.run()
-
+    # Запуск приложения (на Render порт подставится автоматически через gunicorn)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
