@@ -3,153 +3,231 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>NEON STRIKE SLOT</title>
+    <title>ZEUS VS HADES: GODS OF WAR</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background: #050505; color: #fff; overflow: hidden; font-family: sans-serif; }
-        .slot-machine { background: #111; border-radius: 40px; border: 4px solid #222; box-shadow: 0 0 50px rgba(0,0,0,1); }
-        .reel-container { height: 360px; overflow: hidden; position: relative; background: #000; }
-        .reel { transition: transform 3s cubic-bezier(0.1, 0, 0.1, 1); }
-        .symbol { height: 120px; display: flex; align-items: center; justify-content: center; font-size: 3.5rem; filter: drop-shadow(0 0 5px rgba(255,255,255,0.1)); }
-        .win-line { position: absolute; top: 50%; left: 0; width: 100%; height: 4px; background: rgba(234, 179, 8, 0.5); shadow: 0 0 15px yellow; z-30 opacity: 0; transition: opacity 0.3s; pointer-events: none; }
-        .active-win { opacity: 1; animation: blink 0.2s infinite; }
-        @keyframes blink { 50% { opacity: 0.2; } }
-        .big-win-anim { animation: shake 0.5s infinite; }
-        @keyframes shake { 0% { transform: translate(1px, 1px); } 20% { transform: translate(-3px, 0); } 40% { transform: translate(3px, 2px); } 100% { transform: translate(1px, -1px); } }
+        body { background: #0a0a0a; color: #fff; font-family: 'serif'; overflow-x: hidden; touch-action: manipulation; }
+        .slot-machine { background: linear-gradient(90deg, #1e3a8a 0%, #7f1d1d 100%); border: 4px solid #d4af37; border-radius: 20px; position: relative; }
+        .reel-container { height: 360px; overflow: hidden; position: relative; background: rgba(0,0,0,0.8); border-right: 1px solid #333; }
+        .reel { transition: transform 3s cubic-bezier(0.1, 0, 0.1, 1); will-change: transform; }
+        .symbol { height: 120px; display: flex; align-items: center; justify-content: center; font-size: 3rem; }
+        
+        .expanding-wild {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, #ffd700, #ff8c00);
+            z-index: 50; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; animation: expand 0.5s forwards; border: 2px solid white;
+        }
+        @keyframes expand { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+        
+        .multiplier-badge { background: black; color: gold; padding: 2px 8px; border-radius: 5px; font-weight: bold; border: 1px solid gold; margin-top: 10px; }
+        .win-line { position: absolute; top: 50%; width: 100%; height: 4px; background: gold; z-index: 40; display: none; box-shadow: 0 0 20px yellow; }
+        .bonus-active { border-color: #ef4444; box-shadow: 0_0_30px_#ef4444; }
     </style>
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen p-4">
 
-    <div class="text-center mb-10">
-        <h1 class="text-5xl font-black italic tracking-tighter text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]">NEON STRIKE</h1>
-        <p class="text-[10px] tracking-[0.4em] text-gray-500 uppercase mt-2">Hacksaw Inspired Engine</p>
+    <div class="text-center mb-4">
+        <h1 class="text-3xl font-black text-yellow-500 italic uppercase">Zeus vs Hades</h1>
+        <div id="bonusStatus" class="text-red-500 font-bold hidden uppercase animate-pulse">Free Spins: <span id="fsCount">0</span></div>
     </div>
 
-    <div id="machine" class="slot-machine p-4 relative w-full max-w-sm">
+    <div id="machine" class="slot-machine p-2 w-full max-w-lg">
         <div class="win-line" id="winLine"></div>
-        <div class="flex gap-2 rounded-3xl overflow-hidden relative">
-            <div class="reel-container flex-1"><div id="reel-0" class="reel"></div></div>
-            <div class="reel-container flex-1"><div id="reel-1" class="reel"></div></div>
-            <div class="reel-container flex-1"><div id="reel-2" class="reel"></div></div>
+        <div class="flex rounded-lg overflow-hidden relative">
+            <div class="reel-container flex-1"><div id="reel-0" class="reel"></div><div id="wild-0"></div></div>
+            <div class="reel-container flex-1"><div id="reel-1" class="reel"></div><div id="wild-1"></div></div>
+            <div class="reel-container flex-1"><div id="reel-2" class="reel"></div><div id="wild-2"></div></div>
         </div>
     </div>
 
-    <div class="mt-12 flex gap-10 items-center w-full max-w-sm justify-between px-4">
-        <div class="text-left">
-            <p class="text-[10px] text-gray-500 uppercase">Credits</p>
-            <p id="balance" class="text-3xl font-bold text-yellow-500 tracking-tighter">${{ balance }}</p>
-        </div>
-        
-        <button id="spinBtn" onclick="handleSpin()" class="w-24 h-24 bg-yellow-500 rounded-full border-b-8 border-yellow-700 flex items-center justify-center active:border-b-0 active:translate-y-2 transition-all shadow-2xl">
-            <span class="text-black font-black text-2xl uppercase">Spin</span>
-        </button>
+    <div class="mt-4 flex gap-2 w-full max-w-lg">
+        <button onclick="buyBonus(100)" class="flex-1 bg-blue-900 border border-blue-400 p-2 rounded text-[10px] font-bold">BUY BONUS X100</button>
+        <button onclick="buyBonus(500)" class="flex-1 bg-red-900 border border-red-400 p-2 rounded text-[10px] font-bold">SUPER BONUS X500</button>
+    </div>
 
-        <div class="text-right">
-            <p class="text-[10px] text-gray-500 uppercase">Win</p>
-            <p id="lastWin" class="text-xl font-bold text-green-500 tracking-tighter">$0</p>
+    <div class="mt-4 w-full max-w-lg bg-black/80 p-4 rounded-2xl border border-gray-800">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <p class="text-[10px] text-gray-500">CREDITS</p>
+                <div class="flex items-center gap-1">
+                    <p id="balance" class="text-lg font-bold text-white">${{ balance }}</p>
+                    <button onclick="addCash()" class="bg-green-600 px-1 rounded text-xs">+</button>
+                </div>
+            </div>
+            <div class="text-center">
+                <p class="text-[10px] text-gray-500">BET</p>
+                <div class="flex items-center gap-3 bg-gray-900 px-3 py-1 rounded-full">
+                    <button onclick="changeBet(-1)" class="font-bold text-yellow-500">-</button>
+                    <span id="betDisplay" class="text-sm font-bold min-w-[50px]">$10</span>
+                    <button onclick="changeBet(1)" class="font-bold text-yellow-500">+</button>
+                </div>
+            </div>
+            <div class="text-right">
+                <p class="text-[10px] text-gray-500">WIN</p>
+                <p id="lastWin" class="text-lg font-bold text-yellow-500">$0</p>
+            </div>
         </div>
+        <button id="spinBtn" onclick="handleSpin()" class="w-full py-4 bg-yellow-500 rounded-xl text-black font-black text-xl uppercase active:bg-yellow-400">Spin</button>
     </div>
 
     <script>
-        // Конфигурация символов и звуков
-        const SYMBOLS = [
-            { s: '🍒', w: 15, v: 2 },  { s: '🍋', w: 12, v: 5 },
-            { s: '💎', w: 4, v: 25 },  { s: '7️⃣', w: 1, v: 100 }
-        ];
+        const STAKES = [10, 20, 40, 100, 250, 1000, 10000, 100000];
+        let currentBetIndex = 0;
+        let balance = {{ balance }};
+        let freeSpins = 0;
+        let isSuperBonus = false;
+        let isSpinning = false;
+        const SYMBOLS = ['⚡', '🔥', '🏛️', '⚔️', '🔱', '🏺', '🎰'];
+        const MULTIPLIERS = [2, 3, 5, 8, 10, 25, 50, 100, 500];
 
         const audioSpin = new Audio('https://assets.mixkit.co/active_storage/sfx/2005/2005-preview.mp3');
-        const audioWinNormal = new Audio('https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3');
-        const audioBigWin = new Audio('https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3');
-        
-        let balance = {{ balance }};
-        const reels = [document.getElementById('reel-0'), document.getElementById('reel-1'), document.getElementById('reel-2')];
+        const audioWild = new Audio('https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3');
 
         function init() {
-            reels.forEach(r => {
+            [0,1,2].forEach(i => {
+                const reel = document.getElementById(`reel-${i}`);
                 let content = '';
-                for(let i=0; i<80; i++) {
-                    const s = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)].s;
-                    content += `<div class="symbol">${s}</div>`;
-                }
-                r.innerHTML = content;
+                for(let j=0; j<100; j++) content += `<div class="symbol">${SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)]}</div>`;
+                reel.innerHTML = content;
+                reel.style.transform = 'translateY(0)';
             });
+        }
+
+        function changeBet(dir) {
+            if(isSpinning || freeSpins > 0) return;
+            currentBetIndex = Math.max(0, Math.min(STAKES.length - 1, currentBetIndex + dir));
+            document.getElementById('betDisplay').innerText = `$${STAKES[currentBetIndex]}`;
+        }
+
+        async function updateBalanceOnServer(amount) {
+            try {
+                const res = await fetch('/win', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({amount: amount})
+                });
+                const data = await res.json();
+                balance = data.new_balance;
+                document.getElementById('balance').innerText = `$${balance}`;
+            } catch(e) { console.error("Balance update failed", e); }
+        }
+
+        async function addCash() {
+            await updateBalanceOnServer(1000);
+        }
+
+        async function buyBonus(costMult) {
+            if(isSpinning || freeSpins > 0) return;
+            const cost = STAKES[currentBetIndex] * costMult;
+            if(balance < cost) return alert("Low balance!");
+            
+            await updateBalanceOnServer(-cost);
+            freeSpins = 10;
+            isSuperBonus = (costMult === 500);
+            startBonusRound();
         }
 
         async function handleSpin() {
-            if(balance < 100) return alert("Low balance");
+            if (isSpinning || freeSpins > 0) return;
+            const bet = STAKES[currentBetIndex];
+            if(balance < bet) return alert("Low balance!");
+
+            isSpinning = true;
+            document.getElementById('spinBtn').disabled = true;
             
-            const btn = document.getElementById('spinBtn');
-            const machine = document.getElementById('machine');
-            btn.disabled = true;
-            machine.classList.remove('big-win-anim');
-            document.getElementById('winLine').classList.remove('active-win');
-            document.getElementById('lastWin').innerText = '$0';
-
-            // Звук старта
-            audioSpin.currentTime = 0;
-            audioSpin.play().catch(() => {}); // Игнорируем блокировку автоплея
-
-            const resFetch = await fetch('/spin', { method: 'POST' });
-            if(!resFetch.ok) return;
-            const data = await resFetch.json();
-            balance = data.new_balance;
-            document.getElementById('balance').innerText = `$${balance}`;
-
-            const stopPositions = [];
-            reels.forEach((r, i) => {
-                const stopAt = Math.floor(Math.random() * 50) + 20;
-                r.style.transition = `transform ${2 + i*0.8}s cubic-bezier(0.1, 0, 0.1, 1)`;
-                r.style.transform = `translateY(-${stopAt * 120}px)`;
-                
-                setTimeout(() => {
-                    const symbolIndex = stopAt + 1;
-                    stopPositions.push(r.children[symbolIndex].innerText);
-                    if(stopPositions.length === 3) processResult(stopPositions);
-                }, 2000 + i*800);
-            });
+            await updateBalanceOnServer(-bet);
+            await performSpin(bet);
+            isSpinning = false;
+            document.getElementById('spinBtn').disabled = false;
         }
 
-        async function processResult(res) {
-            document.getElementById('spinBtn').disabled = false;
-            
-            if(res[0] === res[1] && res[1] === res[2]) {
-                const config = SYMBOLS.find(s => s.s === res[0]);
-                const multiplier = config.v;
-                const winAmt = 100 * multiplier;
-                
-                let tier = "";
-                let color = "";
+        async function performSpin(bet) {
+            document.getElementById('winLine').style.display = 'none';
+            [0,1,2].forEach(i => document.getElementById(`wild-${i}`).innerHTML = '');
+            audioSpin.currentTime = 0;
+            audioSpin.play().catch(()=>{});
 
-                // Логика уровней по возрастанию
-                if (multiplier <= 5) {
-                    tier = "NORMAL WIN"; color = "text-blue-400";
-                    audioWinNormal.play();
-                } else if (multiplier <= 25) {
-                    tier = "SUPERB WIN"; color = "text-purple-500";
-                    audioWinNormal.play();
-                } else if (multiplier <= 50) {
-                    tier = "SENSATIONAL WIN"; color = "text-pink-500";
-                    audioBigWin.play();
-                } else {
-                    tier = "🔥 BIG WIN 🔥"; color = "text-yellow-500";
-                    document.getElementById('machine').classList.add('big-win-anim');
-                    audioBigWin.play();
-                }
-
-                const winDisplay = document.getElementById('lastWin');
-                winDisplay.innerHTML = `<span class="${color} text-sm font-black">${tier}</span><br>$${winAmt}`;
-                document.getElementById('winLine').classList.add('active-win');
-
-                const s_res = await fetch('/win', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({amount: winAmt})
+            const results = [];
+            const spinPromises = [0,1,2].map(i => {
+                return new Promise(resolve => {
+                    const reel = document.getElementById(`reel-${i}`);
+                    const stopAt = Math.floor(Math.random() * 70) + 10;
+                    reel.style.transition = `transform ${2 + i*0.5}s cubic-bezier(0.1, 0, 0.1, 1)`;
+                    reel.style.transform = `translateY(-${stopAt * 120}px)`;
+                    
+                    setTimeout(() => {
+                        results.push(reel.children[stopAt + 1].innerText);
+                        resolve();
+                    }, 2000 + i*500);
                 });
-                const s_data = await s_res.json();
-                document.getElementById('balance').innerText = `$${s_data.new_balance}`;
+            });
+
+            await Promise.all(spinPromises);
+            await processResult(results, bet);
+        }
+
+        async function processResult(res, bet) {
+            if(res[0] === '🎰' && res[1] === '🎰' && res[2] === '🎰' && freeSpins === 0) {
+                freeSpins = 10;
+                isSuperBonus = false;
+                startBonusRound();
+                return;
+            }
+
+            let winMult = 1;
+            let hasWild = false;
+
+            [0,1,2].forEach(i => {
+                let chance = 0.12; 
+                if(isSuperBonus && freeSpins === 9) chance = 1.0; 
+
+                if(Math.random() < chance) {
+                    const m = MULTIPLIERS[Math.floor(Math.random() * MULTIPLIERS.length)];
+                    showWild(i, m);
+                    winMult *= m;
+                    hasWild = true;
+                }
+            });
+
+            if((res[0] === res[1] && res[1] === res[2]) || hasWild) {
+                let finalWin = bet * 2 * winMult;
+                if (finalWin > bet * 25000) finalWin = bet * 25000;
+                if (finalWin > 0) {
+                    document.getElementById('lastWin').innerText = `$${finalWin}`;
+                    await updateBalanceOnServer(finalWin);
+                }
             }
         }
 
+        async function startBonusRound() {
+            isSpinning = true;
+            document.getElementById('spinBtn').disabled = true;
+            document.getElementById('bonusStatus').classList.remove('hidden');
+            document.getElementById('machine').classList.add('bonus-active');
+            
+            while(freeSpins > 0) {
+                document.getElementById('fsCount').innerText = freeSpins;
+                await performSpin(STAKES[currentBetIndex]);
+                freeSpins--;
+                await new Promise(r => setTimeout(r, 1000));
+            }
+
+            document.getElementById('bonusStatus').classList.add('hidden');
+            document.getElementById('machine').classList.remove('bonus-active');
+            isSpinning = false;
+            document.getElementById('spinBtn').disabled = false;
+        }
+
+        function showWild(reelIdx, mult) {
+            audioWild.currentTime = 0;
+            audioWild.play().catch(()=>{});
+            document.getElementById(`wild-${reelIdx}`).innerHTML = `
+                <div class="expanding-wild">
+                    <span class="text-4xl">⚡</span>
+                    <div class="multiplier-badge">x${mult}</div>
+                </div>`;
+        }
         init();
     </script>
 </body>
